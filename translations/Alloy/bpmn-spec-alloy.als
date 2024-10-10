@@ -1,7 +1,7 @@
 // Process
 sig Process {
 	name: lone String,
-	flowNodes: set FlowNode
+	flowNodes: set FlowNode,
 	subProcesses: set SubProcess
 }
 
@@ -278,16 +278,18 @@ pred enterSubProcess(ps: ProcessSnapshot, sp: SubProcess, sf: SequenceFlow) {
     }
 }
 
-pred exitSubProcess(ps: ProcessSnapshot, sp: SubProcess, sf: SequenceFlow) {
+pred exitSubProcess(ps: ProcessSnapshot, sp: SubProcess, spEndEvent: EndEvent, incomingFlow: SequenceFlow, outgoingFlow: SequenceFlow) {
     -- Preconditions
     one t: ps.tokens {
-        t.pos = sp.subEndEvent
-        sf in sp.outgoingSequenceFlows
+        incomingFlow.target = spEndEvent                // The incoming flow leads to the subprocess end event
+        t.pos = incomingFlow                            // Token is on the incoming flow of the end event
+        outgoingFlow in sp.outgoingSequenceFlows        // outgoingFlow is a valid outgoing flow from the subprocess
+        
         -- Postconditions
         some newToken : Token'-Token {
-            Token' = Token + newToken - t
-            pos' = pos + newToken->sf.target - t->sp.subEndEvent
-            tokens' = tokens + ps->newToken - ps->t
+            Token' = Token + newToken - t               // Remove the token from incomingFlow, add it on outgoingFlow
+            pos' = pos + newToken->outgoingFlow - t->incomingFlow
+            tokens' = tokens + ps->newToken - ps->t     // Update tokens in the ProcessSnapshot
         }
     }
 }
@@ -311,34 +313,40 @@ pred unsafeHelper(t,t1 : Token) {
 }
 
 pred init [] {
-    #Process = 0
-    #StartEvent = 1
-    #EndEvent = 1
-    #EventBasedGateway = 1
-    #Event = 2
+    #Process = 1
+    #StartEvent = 2                // 1 main process start event + 1 subprocess start event
+    #EndEvent = 2                  // 1 main process end event + 1 subprocess end event
+    #SubProcess = 1
+    #Activity = 1
     #Token = 1
-    #SequenceFlow = 3
+    #SequenceFlow = 4              // Only four sequence flows in total
     #ProcessSnapshot = 1
-    
-    some pSnapshot: ProcessSnapshot, s: StartEvent, ebg: EventBasedGateway, e: EndEvent, ev1, ev2: Event {
+
+    some pSnapshot: ProcessSnapshot, s: StartEvent, sp: SubProcess, subStart: StartEvent, subEnd: EndEvent, mainEnd: EndEvent, act: Activity {
+        // Main Process Flow
         #s.incomingSequenceFlows = 0
         #s.outgoingSequenceFlows = 1
-        s.outgoingSequenceFlows.target = ebg
-        
-        #ebg.incomingSequenceFlows = 1
-        ebg.incomingSequenceFlows.source = s
-        #ebg.outgoingEvents = 2
-        ebg.outgoingEvents.target = e
+        s.outgoingSequenceFlows.target = sp
 
-        // Define event triggers for the outgoing paths
-        ev1.trigger = e  // Event triggers EndEvent directly
-        ev2.trigger = e  // Event can also trigger another path, if applicable
-        
-        #e.incomingSequenceFlows = 1
-        e.incomingSequenceFlows.source = ebg
-        #e.outgoingSequenceFlows = 0
+        #mainEnd.incomingSequenceFlows = 1
+        sp.outgoingSequenceFlows.target = mainEnd
 
-        // Place the initial token at the StartEvent
+        // SubProcess Flow
+        sp.subStartEvent = subStart
+        sp.subEndEvents = subEnd
+        
+        #subStart.incomingSequenceFlows = 0
+        #subStart.outgoingSequenceFlows = 1
+        subStart.outgoingSequenceFlows.target = act
+
+        #act.incomingSequenceFlows = 1
+        #act.outgoingSequenceFlows = 1
+        act.outgoingSequenceFlows.target = subEnd
+
+        #subEnd.incomingSequenceFlows = 1
+        #subEnd.outgoingSequenceFlows = 0
+
+        // Initial token position at StartEvent of the main process
         one t: pSnapshot.tokens {
             t.pos = s
         }
@@ -372,6 +380,10 @@ pred trans [] {
     	or
     	(some ps: ProcessSnapshot, ebg: EventBasedGateway, osf: SequenceFlow, ev: Event | eventBasedGatewayHappens[ps, ebg, osf, ev])
     	or
+    	(some ps: ProcessSnapshot, sp: SubProcess, sf: SequenceFlow | enterSubProcess[ps, sp, sf])
+    	or
+    	(some ps: ProcessSnapshot, sp: SubProcess, spEndEvent: EndEvent, incomingFlow: SequenceFlow, outgoingFlow: SequenceFlow | exitSubProcess[ps, sp, spEndEvent, incomingFlow, outgoingFlow])
+    	or
 	doNothing
 	// TODO: Expand with gateways
 }
@@ -387,4 +399,4 @@ pred System {
 	init and always trans-- and eventually terminates and not eventually unsafe
 }
 
-run System
+run System for 5 Token, 6 FlowNode, 4 SequenceFlow, 1 Process, 2 StartEvent, 2 EndEvent, 1 ProcessSnapshot, 1 SubProcess, 1 Activity, 0 Event
