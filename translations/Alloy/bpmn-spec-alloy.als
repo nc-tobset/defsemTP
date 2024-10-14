@@ -312,45 +312,18 @@ pred unsafeHelper(t,t1 : Token) {
 	t.pos = t1.pos
 }
 
-pred init [] {
-    #Process = 1
-    #StartEvent = 2                // 1 main process start event + 1 subprocess start event
-    #EndEvent = 2                  // 1 main process end event + 1 subprocess end event
-    #SubProcess = 1
-    #Task = 1
-    #Token = 1
-    #SequenceFlow = 4              // Only four sequence flows in total
-    #ProcessSnapshot = 1
+one sig startEvent1 extends StartEvent {}
+one sig startEvent2 extends StartEvent {}
+one sig task1 extends Task {}
+one sig exclusiveGateway1 extends ExGate {}
+one sig endEvent1 extends EndEvent {}
 
-    some pSnapshot: ProcessSnapshot, s: StartEvent, sp: SubProcess, subStart: StartEvent, subEnd: EndEvent, mainEnd: EndEvent, act: Task {
-        // Main Process Flow
-        #s.incomingSequenceFlows = 0
-        #s.outgoingSequenceFlows = 1
-        s.outgoingSequenceFlows.target = sp
+pred init {
+    startEvent1.outgoingSequenceFlows.target = task1
+    task1.outgoingSequenceFlows.target = exclusiveGateway1
+    exclusiveGateway1.outgoingSequenceFlows.target = endEvent1
 
-        #mainEnd.incomingSequenceFlows = 1
-        sp.outgoingSequenceFlows.target = mainEnd
-
-        // SubProcess Flow
-        sp.subStartEvent = subStart
-        sp.subEndEvents = subEnd
-        
-        #subStart.incomingSequenceFlows = 0
-        #subStart.outgoingSequenceFlows = 1
-        subStart.outgoingSequenceFlows.target = act
-
-        #act.incomingSequenceFlows = 1
-        #act.outgoingSequenceFlows = 1
-        act.outgoingSequenceFlows.target = subEnd
-
-        #subEnd.incomingSequenceFlows = 1
-        #subEnd.outgoingSequenceFlows = 0
-
-        // Initial token position at StartEvent of the main process
-        one t: pSnapshot.tokens {
-            t.pos = s
-        }
-    }
+    one t: ProcessSnapshot.tokens | t.pos = startEvent1
 }
 
 pred trans [] {
@@ -385,7 +358,6 @@ pred trans [] {
     	(some ps: ProcessSnapshot, sp: SubProcess, spEndEvent: EndEvent, incomingFlow: SequenceFlow, outgoingFlow: SequenceFlow | exitSubProcess[ps, sp, spEndEvent, incomingFlow, outgoingFlow])
     	or
 	doNothing
-	// TODO: Expand with gateways
 }
 
 pred doNothing [] {
