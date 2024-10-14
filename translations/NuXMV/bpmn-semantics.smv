@@ -1,0 +1,50 @@
+-- Token Module
+MODULE Token()
+    VAR
+        pos: {pos_start_event, pos_task_event, pos_end_event};  
+    ASSIGN
+        init(pos) := pos_start_event;
+        next(pos) := case
+            pos = pos_start_event : pos_task_event;
+            pos = pos_task_event : pos_end_event;
+            pos = pos_end_event : pos_end_event;
+            TRUE : pos;
+        esac;
+
+-- StartEvent Module
+MODULE Mod_StartEvent(token_position)
+    VAR
+        is_active: boolean;
+    ASSIGN
+        init(is_active) := FALSE;
+        next(is_active) := token_position = pos_start_event;
+
+-- Task Module
+MODULE Mod_Task(token_position)
+    VAR
+        is_active: boolean;
+    ASSIGN
+        init(is_active) := FALSE;
+        next(is_active) := token_position = pos_task_event;
+
+-- EndEvent Module
+MODULE Mod_EndEvent(token_position)
+    VAR
+        is_active: boolean;
+    ASSIGN
+        init(is_active) := FALSE;
+        next(is_active) := token_position = pos_end_event;
+
+-- Main Module
+MODULE main
+    VAR
+        token_instance : Token();
+        start_event_instance : Mod_StartEvent(token_instance.pos);
+        task_event_instance  : Mod_Task(token_instance.pos);
+        end_event_instance   : Mod_EndEvent(token_instance.pos);
+
+-- Temporal Properties
+LTLSPEC F end_event_instance.is_active
+LTLSPEC G ((start_event_instance.is_active -> !task_event_instance.is_active & !end_event_instance.is_active) &
+           (task_event_instance.is_active -> !start_event_instance.is_active & !end_event_instance.is_active) &
+           (end_event_instance.is_active -> !start_event_instance.is_active & !task_event_instance.is_active))
