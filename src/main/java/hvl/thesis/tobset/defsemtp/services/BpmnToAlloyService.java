@@ -17,88 +17,66 @@ import java.util.stream.Collectors;
 @Service
 public class BpmnToAlloyService {
 
-    public void generateAlloyInit(File alloySpecFile, File outputFile, BpmnModelInstance modelInstance) throws IOException {
-        StringBuilder initPredicate = new StringBuilder("pred init [] {\n");
-        StringBuilder scope = new StringBuilder("run init for ");
+    public String generateInitPredicate(BpmnModelInstance modelInstance) {
+        StringBuilder init = new StringBuilder("pred init [] {\n");
 
-        // Parse BPMN elements
-        Collection<StartEvent> startEvents = modelInstance.getModelElementsByType(StartEvent.class);
-        Collection<EndEvent> endEvents = modelInstance.getModelElementsByType(EndEvent.class);
-        Collection<Activity> activities = modelInstance.getModelElementsByType(Activity.class);
-        Collection<ExclusiveGateway> exGates = modelInstance.getModelElementsByType(ExclusiveGateway.class);
-        Collection<ParallelGateway> paGates = modelInstance.getModelElementsByType(ParallelGateway.class);
-        Collection<IntermediateCatchEvent> catchEvents = modelInstance.getModelElementsByType(IntermediateCatchEvent.class);
-        Collection<IntermediateThrowEvent> throwEvents = modelInstance.getModelElementsByType(IntermediateThrowEvent.class);
-        Collection<EndEvent> terminateEvents = modelInstance.getModelElementsByType(EndEvent.class).stream()
-                .filter(e -> "terminate".equals(e.getAttributeValue("eventDefinition")))  // Only TerminateEndEvent
-                .collect(Collectors.toList());
-        Collection<EventBasedGateway> eventGates = modelInstance.getModelElementsByType(EventBasedGateway.class);
-        Collection<SequenceFlow> sequenceFlows = modelInstance.getModelElementsByType(SequenceFlow.class);
+        // Define element counts
+        init.append("  #Process = 1\n");
+        int startEventCount = modelInstance.getModelElementsByType(StartEvent.class).size();
+        int endEventCount = modelInstance.getModelElementsByType(EndEvent.class).size();
+        int taskCount = modelInstance.getModelElementsByType(Task.class).size();
+        int subprocessCount = modelInstance.getModelElementsByType(SubProcess.class).size();
+        int sequenceFlowCount = modelInstance.getModelElementsByType(SequenceFlow.class).size();
 
-        // Define instances and connections in init predicate
-        for (StartEvent start : startEvents) {
-            initPredicate.append("  one sig ").append(start.getId()).append(" extends StartEvent {}\n");
-        }
-        for (EndEvent end : endEvents) {
-            initPredicate.append("  one sig ").append(end.getId()).append(" extends EndEvent {}\n");
-        }
-        for (Activity task : activities) {
-            initPredicate.append("  one sig ").append(task.getId()).append(" extends Activity {}\n");
-        }
-        for (ExclusiveGateway exGate : exGates) {
-            initPredicate.append("  one sig ").append(exGate.getId()).append(" extends ExGate {}\n");
-        }
-        for (ParallelGateway paGate : paGates) {
-            initPredicate.append("  one sig ").append(paGate.getId()).append(" extends PaGate {}\n");
-        }
-        for (IntermediateCatchEvent catchEvent : catchEvents) {
-            initPredicate.append("  one sig ").append(catchEvent.getId()).append(" extends IntermediateCatchEvent {}\n");
-        }
-        for (IntermediateThrowEvent throwEvent : throwEvents) {
-            initPredicate.append("  one sig ").append(throwEvent.getId()).append(" extends IntermediateThrowEvent {}\n");
-        }
-        for (EndEvent terminate : terminateEvents) {
-            initPredicate.append("  one sig ").append(terminate.getId()).append(" extends TerminateEndEvent {}\n");
-        }
-        for (EventBasedGateway eventGate : eventGates) {
-            initPredicate.append("  one sig ").append(eventGate.getId()).append(" extends EventBasedGateway {}\n");
+        // Set the exact counts for each element type
+        init.append("  #StartEvent = ").append(startEventCount).append("\n");
+        init.append("  #EndEvent = ").append(endEventCount).append("\n");
+        init.append("  #SubProcess = ").append(subprocessCount).append("\n");
+        init.append("  #Task = ").append(taskCount).append("\n");
+        init.append("  #SequenceFlow = ").append(sequenceFlowCount).append("\n");
+        init.append("  #Token = 1\n");
+        init.append("  #ProcessSnapshot = 1\n");
+
+        init.append("\n  some pSnapshot: ProcessSnapshot, s: StartEvent, ");
+        init.append("sp: SubProcess, subStart: StartEvent, subEnd: EndEvent, mainEnd: EndEvent, act: Task {\n");
+
+        // Process StartEvent and EndEvent connections
+        for (SequenceFlow flow : modelInstance.getModelElementsByType(SequenceFlow.class)) {
+            String source = flow.getSource().getId();
+            String target = flow.getTarget().getId();
+
+            if (flow.getSource() instanceof StartEvent) {
+                init.append("    #s.incomingSequenceFlows = 0\n");
+                init.append("    #s.outgoingSequenceFlows = 1\n");
+                init.append("    s.outgoingSequenceFlows.target = ").append(target).append("\n\n");
+            } else if (flow.getTarget() instanceof EndEvent) {
+                init.append("    #").append(target).append(".incomingSequenceFlows = 1\n");
+                init.append("    ").append(source).append(".outgoingSequenceFlows.target = ").append(target).append("\n\n");
+            }
         }
 
-        initPredicate.append("\n");
+        // SubProcess setup
+        init.append("    sp.subStartEvent = subStart\n");
+        init.append("    sp.subEndEvents = subEnd\n\n");
 
-        // Define sequence flow connections in init predicate
-        for (SequenceFlow flow : sequenceFlows) {
-            String sourceId = flow.getSource().getId();
-            String targetId = flow.getTarget().getId();
-            initPredicate.append("  ").append(flow.getId()).append(".source = ").append(sourceId)
-                    .append(" and ").append(flow.getId()).append(".target = ").append(targetId).append("\n");
+        // Task and SequenceFlow mappings
+        for (Task task : modelInstance.getModelElementsByType(Task.class)) {
+            init.append("    #").append(task.getId()).append(".incomingSequenceFlows = 1\n");
+            init.append("    #").append(task.getId()).append(".outgoingSequenceFlows = 1\n");
         }
 
-        initPredicate.append("}\n\n");
-
-        // Determine scope for each element
-        scope.append(startEvents.size()).append(" StartEvent, ")
-                .append(endEvents.size()).append(" EndEvent, ")
-                .append(activities.size()).append(" Activity, ")
-                .append(exGates.size()).append(" ExGate, ")
-                .append(paGates.size()).append(" PaGate, ")
-                .append(catchEvents.size()).append(" IntermediateCatchEvent, ")
-                .append(throwEvents.size()).append(" IntermediateThrowEvent, ")
-                .append(terminateEvents.size()).append(" TerminateEndEvent, ")
-                .append(eventGates.size()).append(" EventBasedGateway, ")
-                .append(sequenceFlows.size()).append(" SequenceFlow");
-
-        scope.append("\n");
-
-        // Append init and scope to Alloy specification file
-        try (FileWriter writer = new FileWriter(outputFile)) {
-            // Copy the original Alloy specification to output
-            writer.write(new String(Files.readAllBytes(alloySpecFile.toPath())));
-
-            // Add generated init predicate and scope
-            writer.write("\n");
-            writer.write(initPredicate.toString());
-            writer.write(scope.toString());
+        for (SequenceFlow flow : modelInstance.getModelElementsByType(SequenceFlow.class)) {
+            init.append("    ").append(flow.getId()).append(".source = ").append(flow.getSource().getId())
+                    .append(" and ").append(flow.getId()).append(".target = ").append(flow.getTarget().getId()).append("\n");
         }
+
+        // Token Initialization
+        init.append("\n    one t: pSnapshot.tokens {\n");
+        init.append("      t.pos = s\n");
+        init.append("    }\n");
+
+        init.append("  }\n");
+        init.append("}");
+        return init.toString();
     }
 }

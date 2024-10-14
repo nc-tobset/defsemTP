@@ -13,7 +13,7 @@ abstract sig FlowNode {
 }
 
 // Special flow nodes.
-sig Activity extends FlowNode {
+sig Task extends FlowNode {
 }
 
 sig StartEvent extends FlowNode {
@@ -63,7 +63,7 @@ fact {
 	all s:StartEvent {
 		outSFs[s]
 	}
-	all a:Activity {
+	all a:Task {
 		incSFs[a]
 		outSFs[a]
 	}
@@ -82,7 +82,7 @@ pred outSFs(f:FlowNode) {
 
 //Token sig + handling
 var sig Token {
-	var pos: one StartEvent + Activity + SequenceFlow + IntermediateCatchEvent + IntermediateThrowEvent + EventBasedGateway
+	var pos: one StartEvent + Task + SequenceFlow + IntermediateCatchEvent + IntermediateThrowEvent + EventBasedGateway
 }
 
 sig ProcessSnapshot {
@@ -105,7 +105,7 @@ pred startEventHappens(ps: ProcessSnapshot, s:StartEvent, t:Token) {
 	-- frame conditions
 }
 
-pred activityStart(ps: ProcessSnapshot, a:Activity, sf:SequenceFlow) {
+pred taskStart(ps: ProcessSnapshot, a:Task, sf:SequenceFlow) {
 	-- pre conditions
 	one t: ps.tokens {
 		t.pos = sf and sf.target = a
@@ -119,7 +119,7 @@ pred activityStart(ps: ProcessSnapshot, a:Activity, sf:SequenceFlow) {
 	-- frame conditions
 }
 
-pred activityEnd(ps: ProcessSnapshot, a:Activity, sf:SequenceFlow) {
+pred taskEnd(ps: ProcessSnapshot, a:Task, sf:SequenceFlow) {
 	one t: ps.tokens {
 		t.pos = a
 		some newToken : Token'-Token {
@@ -317,12 +317,12 @@ pred init [] {
     #StartEvent = 2                // 1 main process start event + 1 subprocess start event
     #EndEvent = 2                  // 1 main process end event + 1 subprocess end event
     #SubProcess = 1
-    #Activity = 1
+    #Task = 1
     #Token = 1
     #SequenceFlow = 4              // Only four sequence flows in total
     #ProcessSnapshot = 1
 
-    some pSnapshot: ProcessSnapshot, s: StartEvent, sp: SubProcess, subStart: StartEvent, subEnd: EndEvent, mainEnd: EndEvent, act: Activity {
+    some pSnapshot: ProcessSnapshot, s: StartEvent, sp: SubProcess, subStart: StartEvent, subEnd: EndEvent, mainEnd: EndEvent, act: Task {
         // Main Process Flow
         #s.incomingSequenceFlows = 0
         #s.outgoingSequenceFlows = 1
@@ -356,9 +356,9 @@ pred init [] {
 pred trans [] {
 	(some ps: ProcessSnapshot, s: StartEvent, t:Token | startEventHappens[ps, s, t])
 	or
-	(some ps: ProcessSnapshot, a: Activity, sf:SequenceFlow | activityStart[ps, a, sf])
+	(some ps: ProcessSnapshot, a: Task, sf:SequenceFlow | taskStart[ps, a, sf])
 	or
-	(some ps: ProcessSnapshot, a: Activity, sf:SequenceFlow | activityEnd[ps, a, sf])
+	(some ps: ProcessSnapshot, a: Task, sf:SequenceFlow | taskEnd[ps, a, sf])
 	or
 	(some ps: ProcessSnapshot, x: ExGate, isf,osf:SequenceFlow | exGateHappens[ps, x, isf, osf])
 	or
@@ -399,4 +399,4 @@ pred System {
 	init and always trans-- and eventually terminates and not eventually unsafe
 }
 
-run System for 5 Token, 6 FlowNode, 4 SequenceFlow, 1 Process, 2 StartEvent, 2 EndEvent, 1 ProcessSnapshot, 1 SubProcess, 1 Activity, 0 Event
+run System for 5 Token, 6 FlowNode, 4 SequenceFlow, 1 Process, 2 StartEvent, 2 EndEvent, 1 ProcessSnapshot, 1 SubProcess, 1 Task, 0 Event
