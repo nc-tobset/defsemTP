@@ -5,11 +5,11 @@ import org.camunda.bpm.model.bpmn.instance.*;
 import org.springframework.stereotype.Service;
 import org.camunda.bpm.model.bpmn.instance.EndEvent;
 import org.camunda.bpm.model.bpmn.instance.TerminateEventDefinition;
+
+import java.io.*;
+import java.nio.file.Paths;
 import java.util.List;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.IOException;
@@ -135,5 +135,29 @@ public class BpmnToAlloyService {
     public boolean isTerminateEndEvent(EndEvent endEvent) {
         Collection<TerminateEventDefinition> terminateEventDefinitions = endEvent.getChildElementsByType(TerminateEventDefinition.class);
         return !terminateEventDefinitions.isEmpty();
+    }
+
+    // New method to create the Alloy output file
+    public void generateAlloyModelFile(String bpmnSpecFilePath, BpmnModelInstance modelInstance, String outputFilePath) {
+        try {
+            // Step 1: Read the BPMN specification file
+            StringBuilder alloyModel = new StringBuilder();
+            Files.lines(Paths.get(bpmnSpecFilePath)).forEach(line -> alloyModel.append(line).append("\n"));
+
+            // Step 2: Generate the `init` predicate
+            String initPredicate = generateInitPredicate(modelInstance);
+            alloyModel.append("\n// Generated init predicate\n").append(initPredicate);
+
+            // Step 3: Write the result to an output file
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath))) {
+                writer.write(alloyModel.toString());
+            }
+
+            System.out.println("Alloy model file generated at: " + outputFilePath);
+
+        } catch (IOException e) {
+            System.err.println("Error generating Alloy model file: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

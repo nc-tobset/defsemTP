@@ -58,7 +58,7 @@ class BpmnToAlloyServiceTest {
         // Check for the presence of ParallelGateway with opening and closing labels
         assertTrue(alloyModel.contains("parallelGatewayOpening1"));
         assertTrue(alloyModel.contains("parallelGatewayClosing1"));
-        
+
     }
 
     @Test
