@@ -127,7 +127,7 @@ public class BpmnToAlloyService {
         return alloyModel.toString();
     }
 
-    private boolean isParallelGatewayOpening(ParallelGateway gateway) {
+    public boolean isParallelGatewayOpening(ParallelGateway gateway) {
         // if opening --> outgoing flows will be >1
         return gateway.getOutgoing().size() > 1;
     }

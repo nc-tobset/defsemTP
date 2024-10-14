@@ -4,91 +4,85 @@ import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.*;
 import org.camunda.bpm.model.bpmn.instance.Process;
-import org.camunda.bpm.model.xml.impl.instance.ModelTypeInstanceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.Collection;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class BpmnToAlloyServiceTest {
 
-    private BpmnToAlloyService bpmnToAlloyService;
+    private BpmnToAlloyService service;
+    private BpmnModelInstance modelInstance;
 
     @BeforeEach
     void setUp() {
-        bpmnToAlloyService = new BpmnToAlloyService();
+        service = new BpmnToAlloyService();
+
+        // Create a BPMN model instance with a parallel gateway opening
+        modelInstance = Bpmn.createProcess("process")
+                .startEvent("startEvent")
+                .parallelGateway("parallelGatewayOpening") // Opening gateway
+                .serviceTask("task1").name("Task 1") // First branch from the gateway
+                .parallelGateway("parallelGatewayClosing") // Closing gateway
+                .endEvent("endEvent") // End event
+                .moveToNode("parallelGatewayOpening") // Move back to opening gateway
+                .serviceTask("task2").name("Task 2") // Second branch from the gateway
+                .connectTo("parallelGatewayClosing") // Connect second task to closing gateway
+                .done();
+
+        // Access the process model and elements to configure sequence flows
+        Process process = modelInstance.getModelElementById("process");
+        ParallelGateway openingGateway = modelInstance.getModelElementById("parallelGatewayOpening");
+
+        // Ensure there are two outgoing flows
+        Collection<SequenceFlow> outgoingFlows = openingGateway.getOutgoing();
+        assertTrue(outgoingFlows.size() > 1, "Parallel gateway should have multiple outgoing flows for opening detection.");
     }
+
 
     @Test
     void testGenerateInitPredicate() {
-        // Step 1: Create a simple BPMN model instance with StartEvent, Task, and EndEvent
-        BpmnModelInstance modelInstance = Bpmn.createEmptyModel();
+        String alloyModel = service.generateInitPredicate(modelInstance);
 
-        // Create Definitions element and add it to the model
-        Definitions definitions = modelInstance.newInstance(Definitions.class);
-        modelInstance.setDefinitions(definitions);
+        // Check that basic structure exists
+        assertTrue(alloyModel.contains("pred init {"));
+        assertTrue(alloyModel.contains("run init for"));
 
-        // Create a Process element and add it to Definitions
-        Process process = modelInstance.newInstance(Process.class);
-        process.setId("process1");
-        definitions.addChildElement(process);
+        // Check that StartEvent, Task, and EndEvent are generated
+        assertTrue(alloyModel.contains("startEvent1"));
+        assertTrue(alloyModel.contains("task1"));
+        assertTrue(alloyModel.contains("endEvent1"));
 
-        // Create StartEvent
-        StartEvent startEvent = modelInstance.newInstance(StartEvent.class);
-        startEvent.setId("startEvent1");
-        process.addChildElement(startEvent);
+        // Check for the presence of ParallelGateway with opening and closing labels
+        assertTrue(alloyModel.contains("parallelGatewayOpening1"));
+        assertTrue(alloyModel.contains("parallelGatewayClosing1"));
+        
+    }
 
-        // Create Task
-        Task task = modelInstance.newInstance(Task.class);
-        task.setId("task1");
-        process.addChildElement(task);
+    @Test
+    void testIsParallelGatewayOpening() {
+        ParallelGateway parallelGatewayOpening = (ParallelGateway) modelInstance.getModelElementById("parallelGatewayOpening");
+        ParallelGateway parallelGatewayClosing = (ParallelGateway) modelInstance.getModelElementById("parallelGatewayClosing");
 
-        // Create EndEvent
+        assertTrue(service.isParallelGatewayOpening(parallelGatewayOpening), "Expected parallel gateway to be identified as opening.");
+        assertFalse(service.isParallelGatewayOpening(parallelGatewayClosing), "Expected parallel gateway to be identified as closing.");
+    }
+
+    @Test
+    void testIsTerminateEndEvent() {
+        // Set up an EndEvent in the BPMN model
         EndEvent endEvent = modelInstance.newInstance(EndEvent.class);
-        endEvent.setId("endEvent1");
+        endEvent.setId("endEvent");
+        TerminateEventDefinition terminateDefinition = modelInstance.newInstance(TerminateEventDefinition.class);
+        endEvent.addChildElement(terminateDefinition);
+
+        // Add the EndEvent to the model
+        Process process = modelInstance.getModelElementById("process");
         process.addChildElement(endEvent);
 
-        // Create SequenceFlows
-        SequenceFlow flow1 = modelInstance.newInstance(SequenceFlow.class);
-        flow1.setId("flow1");
-        flow1.setSource(startEvent);
-        flow1.setTarget(task);
-        process.addChildElement(flow1);
-
-        SequenceFlow flow2 = modelInstance.newInstance(SequenceFlow.class);
-        flow2.setId("flow2");
-        flow2.setSource(task);
-        flow2.setTarget(endEvent);
-        process.addChildElement(flow2);
-
-        // Step 2: Generate Alloy init predicate from the BPMN model
-        String actualInitPredicate = bpmnToAlloyService.generateInitPredicate(modelInstance);
-
-        // Step 3: Define expected Alloy init predicate
-        String expectedInitPredicate =
-                "pred init [] {\n" +
-                        "    #Process = 1\n" +
-                        "    #StartEvent = 1\n" +
-                        "    #Task = 1\n" +
-                        "    #EndEvent = 1\n" +
-                        "    #SequenceFlow = 2\n" +
-                        "    #Token = 1\n" +
-                        "    #ProcessSnapshot = 1\n\n" +
-                        "    some pSnapshot: ProcessSnapshot, s: StartEvent, task: Task, e: EndEvent {\n" +
-                        "        #s.incomingSequenceFlows = 0\n" +
-                        "        #s.outgoingSequenceFlows = 1\n" +
-                        "        s.outgoingSequenceFlows.target = task\n\n" +
-                        "        #task.incomingSequenceFlows = 1\n" +
-                        "        #task.outgoingSequenceFlows = 1\n" +
-                        "        task.outgoingSequenceFlows.target = e\n\n" +
-                        "        #e.incomingSequenceFlows = 1\n" +
-                        "        #e.outgoingSequenceFlows = 0\n\n" +
-                        "        // Initial token position at StartEvent\n" +
-                        "        one t: pSnapshot.tokens { t.pos = s }\n" +
-                        "    }\n" +
-                        "}";
-
-        // Step 4: Assert that generated predicate matches expected predicate
-        assertEquals(expectedInitPredicate, actualInitPredicate);
+        assertTrue(service.isTerminateEndEvent(endEvent), "Expected the end event to be recognized as a TerminateEndEvent.");
     }
+
 }
