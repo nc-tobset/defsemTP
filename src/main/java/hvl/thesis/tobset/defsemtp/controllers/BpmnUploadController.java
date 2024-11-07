@@ -19,7 +19,6 @@ public class BpmnUploadController {
 
     private static final String UPLOAD_DIR = "uploads/";
 
-    // Ensure the upload directory exists
     public BpmnUploadController() {
         File uploadDir = new File(UPLOAD_DIR);
         if (!uploadDir.exists()) {
@@ -34,12 +33,22 @@ public class BpmnUploadController {
         }
 
         try {
-            // Save the uploaded file to the upload directory
-            Path path = Paths.get(UPLOAD_DIR + file.getOriginalFilename());
+            String originalFilename = file.getOriginalFilename();
+            Path path = Paths.get(UPLOAD_DIR + originalFilename);
+
+            int counter = 1;
+            while (Files.exists(path)) {
+                String newFilename = originalFilename.replaceFirst("(\\.bpmn)$", "_" + counter + "$1");
+                path = Paths.get(UPLOAD_DIR + newFilename);
+                counter++;
+            }
+
             Files.write(path, file.getBytes());
-            return ResponseEntity.ok("File uploaded successfully: " + file.getOriginalFilename());
+            return ResponseEntity.ok("File uploaded successfully: " + path.getFileName());
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload file");
         }
     }
+
+
 }

@@ -63,6 +63,13 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.alloytools</groupId>
+			<artifactId>alloy</artifactId>
+			<version>6.1</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/translations/Alloy/alloy.jar</systemPath>
+		</dependency>
 	</dependencies>
 
 	<build>

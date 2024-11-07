@@ -1,0 +1,15 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\main",
+    "\\src\\main\\java",
+    "\\src\\main\\java\\hvl",
+    "\\src\\main\\java\\hvl\\thesis",
+    "\\src\\main\\java\\hvl\\thesis\\tobset",
+    "\\src\\main\\java\\hvl\\thesis\\tobset\\defsemtp",
+    "\\src\\main\\java\\hvl\\thesis\\tobset\\defsemtp\\controllers"
+  ],
+  "SelectedNode": "\\src\\main\\java\\hvl\\thesis\\tobset\\defsemtp\\controllers\\TranslationController.java",
+  "PreviewInSolutionExplorer": false
+}

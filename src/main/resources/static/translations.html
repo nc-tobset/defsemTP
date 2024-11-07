@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="./css/translations.css">
+  <meta charset="UTF-8">
+  <title>Translate BPMN Model</title>
+</head>
+<body>
+
+<div id="menu-bar">
+  <a href="/">Simulation</a>
+  <a href="translations.html">Translations</a>
+</div>
+
+<div id="content-container">
+  <h1>Translate BPMN Model</h1>
+  <div id="translation-container">
+    <input type="file" id="bpmnTranslationFileInput" accept=".bpmn"/>
+    <button id="translateButton">Translate to Alloy</button>
+    <a id="downloadLink" style="display:none;" download="model.als">Download Alloy Model</a>
+    <button id="executeButton" style="display:none;">Execute Alloy Model</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeButtons } from './js/translation.js';
+  initializeButtons();
+</script>
+
+</body>
+</html>

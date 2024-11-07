@@ -137,18 +137,14 @@ public class BpmnToAlloyService {
         return !terminateEventDefinitions.isEmpty();
     }
 
-    // New method to create the Alloy output file
     public void generateAlloyModelFile(String bpmnSpecFilePath, BpmnModelInstance modelInstance, String outputFilePath) {
         try {
-            // Step 1: Read the BPMN specification file
             StringBuilder alloyModel = new StringBuilder();
             Files.lines(Paths.get(bpmnSpecFilePath)).forEach(line -> alloyModel.append(line).append("\n"));
 
-            // Step 2: Generate the `init` predicate
             String initPredicate = generateInitPredicate(modelInstance);
             alloyModel.append("\n// Generated init predicate\n").append(initPredicate);
 
-            // Step 3: Write the result to an output file
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath))) {
                 writer.write(alloyModel.toString());
             }
