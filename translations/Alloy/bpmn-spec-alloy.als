@@ -171,7 +171,6 @@ pred intermediateCatchEventStarts(ps: ProcessSnapshot, ice: IntermediateCatchEve
             tokens' = tokens  + ps->newToken - ps->t
         }
     }
-    -- frame conditions
 }
 pred intermediateCatchEventHappens(ps: ProcessSnapshot, ice: IntermediateCatchEvent, osf: SequenceFlow) {
     -- preconditions
@@ -198,7 +197,6 @@ pred intermediateThrowEventStarts(ps: ProcessSnapshot, ite: IntermediateThrowEve
             tokens' = tokens  + ps->newToken - ps->t
         }
     }
-    -- frame conditions
 }
 pred intermediateThrowEventHappens(ps: ProcessSnapshot, ite: IntermediateThrowEvent, osf: SequenceFlow) {
     -- preconditions

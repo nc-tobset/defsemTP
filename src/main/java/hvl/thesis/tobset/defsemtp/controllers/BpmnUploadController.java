@@ -19,7 +19,6 @@ public class BpmnUploadController {
 
     private static final String UPLOAD_DIR = "uploads/";
 
-    // Ensure the upload directory exists
     public BpmnUploadController() {
         File uploadDir = new File(UPLOAD_DIR);
         if (!uploadDir.exists()) {
@@ -50,4 +49,6 @@ public class BpmnUploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload file");
         }
     }
+
+
 }

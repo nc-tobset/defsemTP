@@ -8,7 +8,6 @@ const viewer = new BpmnViewer({
   ]
 });
 
-// Event listener for file input to load and display the BPMN model
 document.getElementById('bpmnFileInput').addEventListener('change', async (event) => {
     const file = event.target.files[0];
 
@@ -29,14 +28,12 @@ document.getElementById('bpmnFileInput').addEventListener('change', async (event
             fileReader.onload = async function (e) {
                 const bpmnXML = e.target.result;
                 try {
-                    // Import the BPMN XML into the viewer
+                    // Import
                     await viewer.importXML(bpmnXML);
                     viewer.get('canvas').zoom('fit-viewport');
 
-                    // Access the Token Simulation API
+                    // Token Simulation API
                     const tokenSimulation = viewer.get('tokenSimulation');
-
-                    // Start the token simulation
                     tokenSimulation.toggle(); // Starts simulation mode
 
                 } catch (err) {
@@ -54,3 +51,10 @@ document.getElementById('bpmnFileInput').addEventListener('change', async (event
         alert('Please upload a valid BPMN file.');
     }
 });
+/**
+import { initializeTranslateButton } from './translation';
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeTranslateButton();
+});
+**/

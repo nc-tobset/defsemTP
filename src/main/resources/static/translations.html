@@ -4,32 +4,6 @@
   <link rel="stylesheet" href="./css/translations.css">
   <meta charset="UTF-8">
   <title>Translate BPMN Model</title>
-  <style>
-    #menu-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background-color: #333;
-        padding: 10px 20px;
-    }
-
-    #menu-bar a {
-        color: white;
-        text-decoration: none;
-        padding: 10px 20px;
-        font-size: 16px;
-        border-radius: 5px;
-        transition: background-color 0.3s;
-    }
-
-    #menu-bar a:hover {
-        background-color: #555;
-    }
-
-    #translation-container {
-        margin-top: 20px;
-    }
-  </style>
 </head>
 <body>
 
@@ -44,38 +18,13 @@
     <input type="file" id="bpmnTranslationFileInput" accept=".bpmn"/>
     <button id="translateButton">Translate to Alloy</button>
     <a id="downloadLink" style="display:none;" download="model.als">Download Alloy Model</a>
+    <button id="executeButton" style="display:none;">Execute Alloy Model</button>
   </div>
 </div>
 
-
-<script>
-  document.getElementById('bpmnTranslationFileInput').addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-
-      if (file && file.name.endsWith('.bpmn')) {
-          const fileReader = new FileReader();
-          fileReader.onload = async function (e) {
-              const bpmnXML = e.target.result;
-              const alloyContent = translateBpmnToAlloy(bpmnXML);
-              const blob = new Blob([alloyContent], { type: 'text/plain' });
-              const downloadLink = document.getElementById('downloadLink');
-
-              downloadLink.href = URL.createObjectURL(blob);
-              downloadLink.style.display = 'inline';
-              downloadLink.innerText = 'Download Alloy Model';
-          };
-          fileReader.readAsText(file);
-      } else {
-          alert('Please upload a valid BPMN file.');
-      }
-  });
-
-  // To-do: replace with actual translation function from service.
-  function translateBpmnToAlloy(bpmnXML) {
-      return `module model
-  // This is a test model, for the purpose of iterative development.
-  // Test model`;
-  }
+<script type="module">
+  import { initializeButtons } from './js/translation.js';
+  initializeButtons();
 </script>
 
 </body>
