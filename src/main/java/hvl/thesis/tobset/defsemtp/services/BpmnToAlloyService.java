@@ -62,11 +62,10 @@ public class BpmnToAlloyService {
             if (isParallelGatewayOpening(gateway)) {
                 nodeName = "parallelGatewayOpening" + parallelGatewayOpeningIndex;
                 parallelGatewayOpeningIndex++;
-                parallelGatewayTokenAdjustments++;
+                parallelGatewayTokenAdjustments += gateway.getOutgoing().size() - 1; // Increase by the number of outgoing flows minus one
             } else {
                 nodeName = "parallelGatewayClosing" + parallelGatewayClosingIndex;
                 parallelGatewayClosingIndex++;
-                parallelGatewayTokenAdjustments--;
             }
             nodeNames.put(gateway.getId(), nodeName);
             alloyModel.append("one sig ").append(nodeName).append(" extends PaGate {}\n");
@@ -143,6 +142,16 @@ public class BpmnToAlloyService {
             alloyModel.append(String.join(" + ", sources)).append("\n");
         }
 
+        for (StartEvent startEvent : modelInstance.getModelElementsByType(StartEvent.class)) {
+            String nodeName = nodeNames.get(startEvent.getId());
+            alloyModel.append("    #").append(nodeName).append(".incomingSequenceFlows = 0\n");
+        }
+
+        for (EndEvent endEvent : modelInstance.getModelElementsByType(EndEvent.class)) {
+            String nodeName = nodeNames.get(endEvent.getId());
+            alloyModel.append("    #").append(nodeName).append(".outgoingSequenceFlows = 0\n");
+        }
+
         startEventIndex = 1;
         for (StartEvent startEvent : modelInstance.getModelElementsByType(StartEvent.class)) {
             String nodeName = "startEvent" + startEventIndex;
@@ -153,7 +162,7 @@ public class BpmnToAlloyService {
 
         alloyModel.append("}\n\n");
 
-        int initialTokens = startEventIndex - 1;
+        int initialTokens = 2; // Default token scope
         int tokenScope = initialTokens + parallelGatewayTokenAdjustments;
 
         alloyModel.append("run System for ")
