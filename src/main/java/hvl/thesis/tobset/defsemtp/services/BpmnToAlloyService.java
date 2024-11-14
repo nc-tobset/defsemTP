@@ -178,7 +178,7 @@ public class BpmnToAlloyService {
                 .append(subProcessIndex - 1).append(" SubProcess, ")
                 .append(flowIndex - 1).append(" SequenceFlow, ")
                 .append("1 Process, ").append(tokenScope).append(" Token, 1 ProcessSnapshot, ")
-                .append("1 Event, 50 Steps");
+                .append("1 Event, 50 steps");
 
         return alloyModel.toString();
     }
