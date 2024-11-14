@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -67,8 +66,13 @@ public class TranslationController {
         }
 
         try {
+            long startTime = System.currentTimeMillis();
             String executionResult = alloyRunnerService.executeAlloyModel(translatedModelFile);
-            return new ResponseEntity<>(executionResult, HttpStatus.OK);
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+
+            String resultWithTime = executionResult + "\nExecution Time: " + duration + " ms";
+            return new ResponseEntity<>(resultWithTime, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("Failed to execute the model: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
