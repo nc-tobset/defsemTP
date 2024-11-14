@@ -162,7 +162,7 @@ public class BpmnToAlloyService {
 
         alloyModel.append("}\n\n");
 
-        int initialTokens = 2; // Default token scope
+        int initialTokens = 2;
         int tokenScope = initialTokens + parallelGatewayTokenAdjustments;
 
         alloyModel.append("run System for ")
@@ -178,7 +178,7 @@ public class BpmnToAlloyService {
                 .append(subProcessIndex - 1).append(" SubProcess, ")
                 .append(flowIndex - 1).append(" SequenceFlow, ")
                 .append("1 Process, ").append(tokenScope).append(" Token, 1 ProcessSnapshot, ")
-                .append("1 Event");
+                .append("1 Event, 50 Steps");
 
         return alloyModel.toString();
     }

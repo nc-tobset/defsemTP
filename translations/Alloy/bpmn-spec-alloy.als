@@ -145,19 +145,19 @@ pred exGateHappens (ps: ProcessSnapshot, x:ExGate, isf:SequenceFlow, osf:Sequenc
 }
 
 pred paGateHappens (ps: ProcessSnapshot, p:PaGate) {
-	-- pre conditions
-	let oldTokens = {t: Token | t.pos in p.incomingSequenceFlows} {
-		#oldTokens.pos = #p.incomingSequenceFlows
-
-		--post conditions
-		let newTokens = Token' - Token {
-			Token' = Token + newTokens - oldTokens
-			(Token - oldTokens).pos' = (Token - oldTokens).pos
-			tokens' = tokens  + ps->newTokens - ps->oldTokens
-			newTokens.pos' = p.outgoingSequenceFlows
-			#newTokens = #p.outgoingSequenceFlows
-		}
-	}
+    -- pre conditions
+    let oldTokens = {t: Token | t.pos in p.incomingSequenceFlows} {
+        #oldTokens.pos = #p.incomingSequenceFlows
+        all t: oldTokens | t.pos in p.incomingSequenceFlows
+        -- post conditions
+        let newTokens = Token' - Token {
+            Token' = Token + newTokens - oldTokens
+            (Token - oldTokens).pos' = (Token - oldTokens).pos
+            tokens' = tokens + ps->newTokens - ps->oldTokens
+            newTokens.pos' = p.outgoingSequenceFlows
+            #newTokens = #p.outgoingSequenceFlows
+        }
+    }
 }
 
 pred intermediateCatchEventStarts(ps: ProcessSnapshot, ice: IntermediateCatchEvent, sf: SequenceFlow) {
@@ -352,5 +352,5 @@ pred doNothing [] {
 }
 
 pred System {
-	init and always trans-- and eventually terminates and not eventually unsafe
+	init and always trans and eventually terminates and not eventually unsafe
 }
