@@ -310,6 +310,20 @@ pred unsafeHelper(t,t1 : Token) {
 	t.pos = t1.pos
 }
 
+one sig startEvent1 extends StartEvent {}
+one sig startEvent2 extends StartEvent {}
+one sig task1 extends Task {}
+one sig exclusiveGateway1 extends ExGate {}
+one sig endEvent1 extends EndEvent {}
+
+pred init {
+    startEvent1.outgoingSequenceFlows.target = task1
+    task1.outgoingSequenceFlows.target = exclusiveGateway1
+    exclusiveGateway1.outgoingSequenceFlows.target = endEvent1
+
+    one t: ProcessSnapshot.tokens | t.pos = startEvent1
+}
+
 pred trans [] {
 	(some ps: ProcessSnapshot, s: StartEvent, t:Token | startEventHappens[ps, s, t])
 	or
@@ -354,3 +368,5 @@ pred doNothing [] {
 pred System {
 	init and always trans-- and eventually terminates and not eventually unsafe
 }
+
+run System for 5 Token, 6 FlowNode, 4 SequenceFlow, 1 Process, 2 StartEvent, 2 EndEvent, 1 ProcessSnapshot, 1 SubProcess, 1 Task, 0 Event

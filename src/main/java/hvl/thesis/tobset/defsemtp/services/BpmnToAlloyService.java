@@ -8,17 +8,21 @@ import org.camunda.bpm.model.bpmn.instance.TerminateEventDefinition;
 
 import java.io.*;
 import java.nio.file.Paths;
-import java.util.List;
+import java.util.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.stream.Collectors;
 
 
 @Service
 public class BpmnToAlloyService {
+
+    Path projectRoot = Paths.get("").toAbsolutePath();
+    Path resourcePath = projectRoot.resolve("defsemTP/translations/Alloy/bpmn-spec-alloy.als");
+
+    public String specFilePath = resourcePath.toString();
 
     public String generateInitPredicate(BpmnModelInstance modelInstance) {
         StringBuilder alloyModel = new StringBuilder();
@@ -28,80 +32,122 @@ public class BpmnToAlloyService {
         int eventBasedGatewayIndex = 1, intermediateCatchEventIndex = 1;
         int intermediateThrowEventIndex = 1, terminateEndEventIndex = 1;
         int endEventIndex = 1, subProcessIndex = 1;
+        int flowIndex = 1;
+
+        Map<String, String> nodeNames = new HashMap<>();
 
         for (StartEvent startEvent : modelInstance.getModelElementsByType(StartEvent.class)) {
-            alloyModel.append("one sig startEvent").append(startEventIndex).append(" extends StartEvent {}\n");
+            String nodeName = "startEvent" + startEventIndex;
+            nodeNames.put(startEvent.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends StartEvent {}\n");
             startEventIndex++;
         }
         for (Task task : modelInstance.getModelElementsByType(Task.class)) {
-            alloyModel.append("one sig task").append(taskIndex).append(" extends Task {}\n");
+            String nodeName = "task" + taskIndex;
+            nodeNames.put(task.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends Task {}\n");
             taskIndex++;
         }
         for (ExclusiveGateway gateway : modelInstance.getModelElementsByType(ExclusiveGateway.class)) {
-            alloyModel.append("one sig exclusiveGateway").append(exclusiveGatewayIndex).append(" extends ExclusiveGateway {}\n");
+            String nodeName = "exclusiveGateway" + exclusiveGatewayIndex;
+            nodeNames.put(gateway.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends ExGate {}\n");
             exclusiveGatewayIndex++;
         }
 
         int parallelGatewayTokenAdjustments = 0;
 
         for (ParallelGateway gateway : modelInstance.getModelElementsByType(ParallelGateway.class)) {
+            String nodeName;
             if (isParallelGatewayOpening(gateway)) {
-                alloyModel.append("one sig parallelGatewayOpening").append(parallelGatewayOpeningIndex).append(" extends ParallelGateway {}\n");
+                nodeName = "parallelGatewayOpening" + parallelGatewayOpeningIndex;
                 parallelGatewayOpeningIndex++;
                 parallelGatewayTokenAdjustments++;
             } else {
-                alloyModel.append("one sig parallelGatewayClosing").append(parallelGatewayClosingIndex).append(" extends ParallelGateway {}\n");
+                nodeName = "parallelGatewayClosing" + parallelGatewayClosingIndex;
                 parallelGatewayClosingIndex++;
                 parallelGatewayTokenAdjustments--;
             }
+            nodeNames.put(gateway.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends PaGate {}\n");
         }
 
         for (EventBasedGateway gateway : modelInstance.getModelElementsByType(EventBasedGateway.class)) {
-            alloyModel.append("one sig eventBasedGateway").append(eventBasedGatewayIndex).append(" extends EventBasedGateway {}\n");
+            String nodeName = "eventBasedGateway" + eventBasedGatewayIndex;
+            nodeNames.put(gateway.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends EventBasedGateway {}\n");
             eventBasedGatewayIndex++;
         }
 
         for (IntermediateCatchEvent catchEvent : modelInstance.getModelElementsByType(IntermediateCatchEvent.class)) {
-            alloyModel.append("one sig intermediateCatchEvent").append(intermediateCatchEventIndex).append(" extends IntermediateCatchEvent {}\n");
+            String nodeName = "intermediateCatchEvent" + intermediateCatchEventIndex;
+            nodeNames.put(catchEvent.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends IntermediateCatchEvent {}\n");
             intermediateCatchEventIndex++;
         }
 
         for (IntermediateThrowEvent throwEvent : modelInstance.getModelElementsByType(IntermediateThrowEvent.class)) {
-            alloyModel.append("one sig intermediateThrowEvent").append(intermediateThrowEventIndex).append(" extends IntermediateThrowEvent {}\n");
+            String nodeName = "intermediateThrowEvent" + intermediateThrowEventIndex;
+            nodeNames.put(throwEvent.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends IntermediateThrowEvent {}\n");
             intermediateThrowEventIndex++;
         }
 
         for (EndEvent endEvent : modelInstance.getModelElementsByType(EndEvent.class)) {
+            String nodeName;
             if (isTerminateEndEvent(endEvent)) {
-                alloyModel.append("one sig terminateEndEvent").append(terminateEndEventIndex).append(" extends TerminateEndEvent {}\n");
+                nodeName = "terminateEndEvent" + terminateEndEventIndex;
                 terminateEndEventIndex++;
             } else {
-                alloyModel.append("one sig endEvent").append(endEventIndex).append(" extends EndEvent {}\n");
+                nodeName = "endEvent" + endEventIndex;
                 endEventIndex++;
             }
+            nodeNames.put(endEvent.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends EndEvent {}\n");
         }
 
         for (SubProcess subProcess : modelInstance.getModelElementsByType(SubProcess.class)) {
-            alloyModel.append("one sig subProcess").append(subProcessIndex).append(" extends SubProcess {}\n");
+            String nodeName = "subProcess" + subProcessIndex;
+            nodeNames.put(subProcess.getId(), nodeName);
+            alloyModel.append("one sig ").append(nodeName).append(" extends SubProcess {}\n");
             subProcessIndex++;
         }
 
         alloyModel.append("\npred init {\n");
 
-        int flowIndex = 1;
-        for (SequenceFlow flow : modelInstance.getModelElementsByType(SequenceFlow.class)) {
-            String sourceId = flow.getSource().getId();
-            String targetId = flow.getTarget().getId();
+        Map<String, List<String>> outgoingFlows = new HashMap<>();
+        Map<String, List<String>> incomingFlows = new HashMap<>();
 
-            alloyModel.append("    sequenceFlow").append(flowIndex).append(".source = ").append(sourceId)
-                    .append(" and sequenceFlow").append(flowIndex).append(".target = ").append(targetId).append("\n");
+        for (SequenceFlow flow : modelInstance.getModelElementsByType(SequenceFlow.class)) {
+            String sourceName = nodeNames.get(flow.getSource().getId());
+            String targetName = nodeNames.get(flow.getTarget().getId());
+
+            outgoingFlows.computeIfAbsent(sourceName, k -> new ArrayList<>()).add(targetName);
+            incomingFlows.computeIfAbsent(targetName, k -> new ArrayList<>()).add(sourceName);
             flowIndex++;
+        }
+
+        for (Map.Entry<String, List<String>> entry : outgoingFlows.entrySet()) {
+            String sourceName = entry.getKey();
+            List<String> targets = entry.getValue();
+            alloyModel.append("    #").append(sourceName).append(".outgoingSequenceFlows = ").append(targets.size()).append("\n");
+            alloyModel.append("    ").append(sourceName).append(".outgoingSequenceFlows.target = ");
+            alloyModel.append(String.join(" + ", targets)).append("\n");
+        }
+
+        for (Map.Entry<String, List<String>> entry : incomingFlows.entrySet()) {
+            String targetName = entry.getKey();
+            List<String> sources = entry.getValue();
+            alloyModel.append("    #").append(targetName).append(".incomingSequenceFlows = ").append(sources.size()).append("\n");
+            alloyModel.append("    ").append(targetName).append(".incomingSequenceFlows.source = ");
+            alloyModel.append(String.join(" + ", sources)).append("\n");
         }
 
         startEventIndex = 1;
         for (StartEvent startEvent : modelInstance.getModelElementsByType(StartEvent.class)) {
-            alloyModel.append("    one t").append(startEventIndex).append(": Token | t").append(startEventIndex)
-                    .append(".pos = startEvent").append(startEventIndex).append("\n");
+            String nodeName = "startEvent" + startEventIndex;
+            alloyModel.append("    one t").append(startEventIndex).append(": ProcessSnapshot.tokens | t").append(startEventIndex)
+                    .append(".pos = ").append(nodeName).append("\n");
             startEventIndex++;
         }
 
@@ -110,11 +156,11 @@ public class BpmnToAlloyService {
         int initialTokens = startEventIndex - 1;
         int tokenScope = initialTokens + parallelGatewayTokenAdjustments;
 
-        alloyModel.append("run init for ")
+        alloyModel.append("run System for ")
                 .append(startEventIndex - 1).append(" StartEvent, ")
                 .append(taskIndex - 1).append(" Task, ")
-                .append(exclusiveGatewayIndex - 1).append(" ExclusiveGateway, ")
-                .append(parallelGatewayOpeningIndex + parallelGatewayClosingIndex - 2).append(" ParallelGateway, ")
+                .append(exclusiveGatewayIndex - 1).append(" ExGate, ")
+                .append(parallelGatewayOpeningIndex + parallelGatewayClosingIndex - 2).append(" PaGate, ")
                 .append(eventBasedGatewayIndex - 1).append(" EventBasedGateway, ")
                 .append(intermediateCatchEventIndex - 1).append(" IntermediateCatchEvent, ")
                 .append(intermediateThrowEventIndex - 1).append(" IntermediateThrowEvent, ")
@@ -122,10 +168,13 @@ public class BpmnToAlloyService {
                 .append(terminateEndEventIndex - 1).append(" TerminateEndEvent, ")
                 .append(subProcessIndex - 1).append(" SubProcess, ")
                 .append(flowIndex - 1).append(" SequenceFlow, ")
-                .append("1 Process, ").append(tokenScope).append(" Token, 1 ProcessSnapshot");
+                .append("1 Process, ").append(tokenScope).append(" Token, 1 ProcessSnapshot, ")
+                .append("1 Event");
 
         return alloyModel.toString();
     }
+
+
 
     public boolean isParallelGatewayOpening(ParallelGateway gateway) {
         // if opening --> outgoing flows will be >1

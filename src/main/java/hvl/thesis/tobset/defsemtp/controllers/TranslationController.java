@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 
 @RestController
 @RequestMapping("/api/translate")
@@ -35,10 +36,18 @@ public class TranslationController {
             InputStream inputStream = file.getInputStream();
             BpmnModelInstance modelInstance = Bpmn.readModelFromStream(inputStream);
 
-            String alloyModel = bpmnToAlloyService.generateInitPredicate(modelInstance);
+            // Define paths for the BPMN spec file and the output Alloy model file
+            String bpmnSpecFilePath = bpmnToAlloyService.specFilePath;
+            String outputFilePath = File.createTempFile("model", ".als").getAbsolutePath();
 
-            // Save the translated Alloy model to a temporary file
-            translatedModelFile = saveAlloyModelToFile(alloyModel);
+            // Generate the Alloy model file
+            bpmnToAlloyService.generateAlloyModelFile(bpmnSpecFilePath, modelInstance, outputFilePath);
+
+            // Save the translated Alloy model file path
+            translatedModelFile = new File(outputFilePath);
+
+            // Read the content of the generated Alloy model file
+            String alloyModel = new String(Files.readAllBytes(translatedModelFile.toPath()));
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.TEXT_PLAIN);
@@ -63,13 +72,5 @@ public class TranslationController {
         } catch (Exception e) {
             return new ResponseEntity<>("Failed to execute the model: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-    }
-
-    private File saveAlloyModelToFile(String alloyModel) throws IOException {
-        File tempFile = File.createTempFile("model", ".als");
-        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-            fos.write(alloyModel.getBytes());
-        }
-        return tempFile;
     }
 }
