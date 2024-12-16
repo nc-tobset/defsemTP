@@ -23,6 +23,57 @@ public class BpmnToAlloyService {
     Path resourcePath = projectRoot.resolve("defsemTP/translations/Alloy/bpmn-spec-alloy.als");
 
     public String specFilePath = resourcePath.toString();
+    public int calculateSteps(BpmnModelInstance modelInstance) {
+        int steps = 0;
+        Map<String, Integer> parallelGatewayMultipliers = new HashMap<>();
+        Set<String> tasksBetweenGateways = new HashSet<>();
+
+        for (SequenceFlow flow : modelInstance.getModelElementsByType(SequenceFlow.class)) {
+            String sourceId = flow.getSource().getId();
+            String targetId = flow.getTarget().getId();
+
+            steps++;
+
+            if (modelInstance.getModelElementById(sourceId) instanceof ParallelGateway) {
+                ParallelGateway gateway = (ParallelGateway) modelInstance.getModelElementById(sourceId);
+                if (isParallelGatewayOpening(gateway)) {
+                    parallelGatewayMultipliers.put(sourceId, gateway.getOutgoing().size());
+                }
+            }
+
+            if (modelInstance.getModelElementById(targetId) instanceof ParallelGateway) {
+                ParallelGateway gateway = (ParallelGateway) modelInstance.getModelElementById(targetId);
+                if (!isParallelGatewayOpening(gateway)) {
+                    parallelGatewayMultipliers.remove(targetId);
+                }
+            }
+
+            int multiplier = parallelGatewayMultipliers.values().stream().reduce(1, (a, b) -> a * b);
+            steps += (multiplier - 1); // Adjust for the multiplier
+
+            if (!parallelGatewayMultipliers.isEmpty() && modelInstance.getModelElementById(targetId) instanceof Task) {
+                tasksBetweenGateways.add(targetId);
+            }
+        }
+
+        for (Task task : modelInstance.getModelElementsByType(Task.class)) {
+            if (!tasksBetweenGateways.contains(task.getId())) {
+                steps++;
+            }
+        }
+
+        for (StartEvent startEvent : modelInstance.getModelElementsByType(StartEvent.class)) {
+            steps++;
+        }
+
+        for (EndEvent endEvent : modelInstance.getModelElementsByType(EndEvent.class)) {
+            for (SequenceFlow incomingFlow : endEvent.getIncoming()) {
+                steps++;
+            }
+        }
+
+        return steps;
+    }
 
     public String generateInitPredicate(BpmnModelInstance modelInstance) {
         StringBuilder alloyModel = new StringBuilder();
@@ -178,7 +229,7 @@ public class BpmnToAlloyService {
                 .append(subProcessIndex - 1).append(" SubProcess, ")
                 .append(flowIndex - 1).append(" SequenceFlow, ")
                 .append("1 Process, ").append(tokenScope).append(" Token, 1 ProcessSnapshot, ")
-                .append("1 Event, 50 steps");
+                .append("1 Event");
 
         return alloyModel.toString();
     }
@@ -203,6 +254,9 @@ public class BpmnToAlloyService {
             String initPredicate = generateInitPredicate(modelInstance);
             alloyModel.append("\n// Generated init predicate\n").append(initPredicate);
 
+            int steps = calculateSteps(modelInstance);
+            alloyModel.append(", ").append(steps).append(" steps");
+
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath))) {
                 writer.write(alloyModel.toString());
             }
@@ -214,4 +268,5 @@ public class BpmnToAlloyService {
             e.printStackTrace();
         }
     }
+
 }
